@@ -49,15 +49,25 @@
             }
         }
 
-        // 2. 監聽滑鼠移動
-        document.addEventListener("mousemove", mouseMoveHandler, false);
+  // 2. 監聽滑鼠與手機觸控移動
+document.addEventListener("mousemove", mouseMoveHandler, false);
+document.addEventListener("touchmove", touchMoveHandler, { passive: false }); // 監聽手指滑動
 
-        function mouseMoveHandler(e) {
-            var relativeX = e.clientX - canvas.offsetLeft;
-            if(relativeX > 0 && relativeX < canvas.width) {
-                paddleX = relativeX - paddleWidth/2;
-            }
-        }
+function mouseMoveHandler(e) {
+    var relativeX = e.clientX - canvas.offsetLeft;
+    if(relativeX > 0 && relativeX < canvas.width) {
+        paddleX = relativeX - paddleWidth/2;
+    }
+}
+
+function touchMoveHandler(e) {
+    e.preventDefault(); // 防止手機網頁跟著手指上下捲動
+    var touch = e.touches[0];
+    var relativeX = touch.clientX - canvas.offsetLeft;
+    if(relativeX > 0 && relativeX < canvas.width) {
+        paddleX = relativeX - paddleWidth/2;
+    }
+}
 
         // 3. 核心邏輯：碰撞檢測 (參考圖解：SIMPLE COLLISION DETECTION)
         function collisionDetection() {
