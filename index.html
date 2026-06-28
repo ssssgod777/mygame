@@ -5,33 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的打磚塊遊戲</title>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #222; color: white; font-family: sans-serif; }
-        #gameCanvas { border: 2px solid #555; background-color: #000; }
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #222; color: white; font-family: sans-serif; touch-action: none; }
+        #gameCanvas { border: 2px solid #555; background-color: #000; max-width: 100%; height: auto; }
+        .container { text-align: center; padding: 10px; }
     </style>
 </head>
 <body>
 
-    <div style="text-align: center;">
+    <div class="container">
         <h2>簡易打磚塊</h2>
         <canvas id="gameCanvas" width="480" height="320"></canvas>
-        <p>使用滑鼠移動板子</p>
+        <p id="hintText">手機請左右滑動螢幕，點擊畫面開始遊戲</p>
+        <p id="scoreText">分數: 0</p>
     </div>
 
     <script>
-        // 1. 初始化 Canvas 與變數 (參考圖解：GAME CANVAS ELEMENTS)
         var canvas = document.getElementById("gameCanvas");
         var ctx = canvas.getContext("2d");
-        var ballRadius = 10;
-        var x = canvas.width/2; // 球的初始X
-        var y = canvas.height-30; // 球的初始Y
-        var dx = 2; // 球的X速度
-        var dy = -2; // 球的Y速度
-        var paddleHeight = 10;
-        var paddleWidth = 75;
-        var paddleX = (canvas.width-paddleWidth)/2; // 板子初始X
-        var score = 0;
+        var hintText = document.getElementById("hintText");
+        var scoreText = document.getElementById("scoreText");
 
-        // 磚塊設定 (參考圖解：CORE GAME MECHANICS)
+        var ballRadius = 10;
+        var x, y, dx, dy; // 移除初始給值，改由 resetBall() 控制
+        
+        var paddleHeight = 12;
+        var paddleWidth = 85; // 稍微加寬板子，手機比較好操作
+        var paddleX = (canvas.width-paddleWidth)/2;
+        var score = 0;
+        var isGameStarted = false; // 用來記錄遊戲是否開始
+
+        // 磚塊設定
         var brickRowCount = 3;
         var brickColumnCount = 5;
         var brickWidth = 75;
@@ -40,47 +43,73 @@
         var brickOffsetTop = 30;
         var brickOffsetLeft = 30;
 
-        // 生成磚塊陣列
         var bricks = [];
         for(var c=0; c<brickColumnCount; c++) {
             bricks[c] = [];
             for(var r=0; r<brickRowCount; r++) {
-                bricks[c][r] = { x: 0, y: 0, status: 1 }; // status 1 表示磚塊存在
+                bricks[c][r] = { x: 0, y: 0, status: 1 };
             }
         }
 
-  // 2. 監聽滑鼠與手機觸控移動
-document.addEventListener("mousemove", mouseMoveHandler, false);
-document.addEventListener("touchmove", touchMoveHandler, { passive: false }); // 監聽手指滑動
+        // 重置球的位置與狀態
+        function resetBall() {
+            isGameStarted = false;
+            x = paddleX + paddleWidth / 2; // 讓球停在板子正中央
+            y = canvas.height - paddleHeight - ballRadius - 2;
+            dx = 2;
+            dy = -2; // 預備往上發射
+            hintText.innerText = "點擊畫面開始遊戲";
+        }
 
-function mouseMoveHandler(e) {
-    var relativeX = e.clientX - canvas.offsetLeft;
-    if(relativeX > 0 && relativeX < canvas.width) {
-        paddleX = relativeX - paddleWidth/2;
-    }
-}
+        // 監聽點擊事件（點擊後球才發射）
+        canvas.addEventListener("click", function() {
+            if(!isGameStarted) {
+                isGameStarted = true;
+                hintText.innerText = "遊戲進行中...";
+            }
+        });
 
-function touchMoveHandler(e) {
-    e.preventDefault(); // 防止手機網頁跟著手指上下捲動
-    var touch = e.touches[0];
-    var relativeX = touch.clientX - canvas.offsetLeft;
-    if(relativeX > 0 && relativeX < canvas.width) {
-        paddleX = relativeX - paddleWidth/2;
-    }
-}
+        // 同時支援點擊 canvas 外的區域開始
+        document.addEventListener("touchstart", function(e) {
+            if(!isGameStarted) {
+                isGameStarted = true;
+                hintText.innerText = "遊戲進行中...";
+            }
+        }, { passive: true });
 
-        // 3. 核心邏輯：碰撞檢測 (參考圖解：SIMPLE COLLISION DETECTION)
+        // 監聽滑鼠與手機觸控移動
+        document.addEventListener("mousemove", mouseMoveHandler, false);
+        document.addEventListener("touchmove", touchMoveHandler, { passive: false });
+
+        function mouseMoveHandler(e) {
+            var relativeX = e.clientX - canvas.offsetLeft;
+            if(relativeX > 0 && relativeX < canvas.width) {
+                paddleX = relativeX - paddleWidth/2;
+                if(!isGameStarted) { x = paddleX + paddleWidth / 2; } // 沒開始前，球跟著板子動
+            }
+        }
+
+        function touchMoveHandler(e) {
+            e.preventDefault();
+            var touch = e.touches[0];
+            var relativeX = touch.clientX - canvas.getBoundingClientRect().left;
+            if(relativeX > 0 && relativeX < canvas.width) {
+                paddleX = relativeX - paddleWidth/2;
+                if(!isGameStarted) { x = paddleX + paddleWidth / 2; } // 沒開始前，球跟著板子動
+            }
+        }
+
+        // 磚塊碰撞檢測
         function collisionDetection() {
             for(var c=0; c<brickColumnCount; c++) {
                 for(var r=0; r<brickRowCount; r++) {
                     var b = bricks[c][r];
-                    if(b.status == 1) { // 如果磚塊還在
-                        // 檢查球是否撞擊磚塊 hitbox (參考圖解視覺化說明)
+                    if(b.status == 1) {
                         if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
-                            dy = -dy; // 球反彈
-                            b.status = 0; // 磚塊消失
+                            dy = -dy;
+                            b.status = 0;
                             score++;
-                            // 檢查是否勝利
+                            scoreText.innerText = "分數: " + score;
                             if(score == brickRowCount*brickColumnCount) {
                                 alert("恭喜！你贏了！");
                                 document.location.reload();
@@ -91,21 +120,22 @@ function touchMoveHandler(e) {
             }
         }
 
-        // 4. 繪製所有元素 (參考圖解：CORE GAME MECHANICS)
         function drawBall() {
             ctx.beginPath();
             ctx.arc(x, y, ballRadius, 0, Math.PI*2);
-            ctx.fillStyle = "#fff"; // 白色球
+            ctx.fillStyle = "#fff";
             ctx.fill();
             ctx.closePath();
         }
+
         function drawPaddle() {
             ctx.beginPath();
             ctx.rect(paddleX, canvas.height-paddleHeight, paddleWidth, paddleHeight);
-            ctx.fillStyle = "#0095DD"; // 藍色板子
+            ctx.fillStyle = "#0095DD";
             ctx.fill();
             ctx.closePath();
         }
+
         function drawBricks() {
             for(var c=0; c<brickColumnCount; c++) {
                 for(var r=0; r<brickRowCount; r++) {
@@ -116,51 +146,49 @@ function touchMoveHandler(e) {
                         bricks[c][r].y = brickY;
                         ctx.beginPath();
                         ctx.rect(brickX, brickY, brickWidth, brickHeight);
-                        ctx.fillStyle = "#FF5733"; // 橘色磚塊
+                        ctx.fillStyle = "#FF5733";
                         ctx.fill();
                         ctx.closePath();
                     }
                 }
             }
         }
-        function drawScore() {
-            ctx.font = "16px Arial";
-            ctx.fillStyle = "#fff";
-            ctx.fillText("分數: "+score, 8, 20);
-        }
 
-        // 5. 遊戲主迴圈 (參考圖解：MAIN GAME LOOP)
+        // 核心遊戲循環
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空畫面
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBricks();
             drawBall();
             drawPaddle();
-            drawScore();
             collisionDetection();
 
-            // 球的牆壁反彈邏輯 (參考圖解：BALL PHYSICS)
-            if(x + dx > canvas.width-ballRadius || x + dx < ballRadius) {
-                dx = -dx; // 左右牆壁反彈
-            }
-            if(y + dy < ballRadius) {
-                dy = -dy; // 上方牆壁反彈
-            } else if(y + dy > canvas.height-ballRadius) {
-                // 檢查是否撞到板子
-                if(x > paddleX && x < paddleX + paddleWidth) {
-                    dy = -dy; // 板子反彈
+            if(isGameStarted) {
+                // 牆壁碰撞邏輯
+                if(x + dx > canvas.width-ballRadius || x + dx < ballRadius) {
+                    dx = -dx;
                 }
-                else {
-                    alert("遊戲結束");
-                    document.location.reload();
+                if(y + dy < ballRadius) {
+                    dy = -dy;
+                } else if(y + dy > canvas.height-ballRadius) {
+                    // 檢查是否接住球
+                    if(x > paddleX && x < paddleX + paddleWidth) {
+                        dy = -dy;
+                    }
+                    else {
+                        // 【關鍵修改】沒接住球時，不再跳 Game Over，而是重置球的位置
+                        resetBall();
+                    }
                 }
+
+                x += dx;
+                y += dy;
             }
 
-            x += dx; // 更新球的X位置
-            y += dy; // 更新球的Y位置
-            requestAnimationFrame(draw); // 持續迴圈 (參考圖解 pseudo-code)
+            requestAnimationFrame(draw);
         }
 
-        draw(); // 啟動遊戲 loop
+        resetBall(); // 進入遊戲時先重置並準備
+        draw();      // 開始主迴圈
 
     </script>
 </body>
