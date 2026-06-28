@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的打磚塊遊戲</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #222; color: white; font-family: sans-serif; }
+        #gameCanvas { border: 2px solid #555; background-color: #000; }
+    </style>
+</head>
+<body>
+
+    <div style="text-align: center;">
+        <h2>簡易打磚塊</h2>
+        <canvas id="gameCanvas" width="480" height="320"></canvas>
+        <p>使用滑鼠移動板子</p>
+    </div>
+
+    <script>
+        // 1. 初始化 Canvas 與變數 (參考圖解：GAME CANVAS ELEMENTS)
+        var canvas = document.getElementById("gameCanvas");
+        var ctx = canvas.getContext("2d");
+        var ballRadius = 10;
+        var x = canvas.width/2; // 球的初始X
+        var y = canvas.height-30; // 球的初始Y
+        var dx = 2; // 球的X速度
+        var dy = -2; // 球的Y速度
+        var paddleHeight = 10;
+        var paddleWidth = 75;
+        var paddleX = (canvas.width-paddleWidth)/2; // 板子初始X
+        var score = 0;
+
+        // 磚塊設定 (參考圖解：CORE GAME MECHANICS)
+        var brickRowCount = 3;
+        var brickColumnCount = 5;
+        var brickWidth = 75;
+        var brickHeight = 20;
+        var brickPadding = 10;
+        var brickOffsetTop = 30;
+        var brickOffsetLeft = 30;
+
+        // 生成磚塊陣列
+        var bricks = [];
+        for(var c=0; c<brickColumnCount; c++) {
+            bricks[c] = [];
+            for(var r=0; r<brickRowCount; r++) {
+                bricks[c][r] = { x: 0, y: 0, status: 1 }; // status 1 表示磚塊存在
+            }
+        }
+
+        // 2. 監聽滑鼠移動
+        document.addEventListener("mousemove", mouseMoveHandler, false);
+
+        function mouseMoveHandler(e) {
+            var relativeX = e.clientX - canvas.offsetLeft;
+            if(relativeX > 0 && relativeX < canvas.width) {
+                paddleX = relativeX - paddleWidth/2;
+            }
+        }
+
+        // 3. 核心邏輯：碰撞檢測 (參考圖解：SIMPLE COLLISION DETECTION)
+        function collisionDetection() {
+            for(var c=0; c<brickColumnCount; c++) {
+                for(var r=0; r<brickRowCount; r++) {
+                    var b = bricks[c][r];
+                    if(b.status == 1) { // 如果磚塊還在
+                        // 檢查球是否撞擊磚塊 hitbox (參考圖解視覺化說明)
+                        if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
+                            dy = -dy; // 球反彈
+                            b.status = 0; // 磚塊消失
+                            score++;
+                            // 檢查是否勝利
+                            if(score == brickRowCount*brickColumnCount) {
+                                alert("恭喜！你贏了！");
+                                document.location.reload();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. 繪製所有元素 (參考圖解：CORE GAME MECHANICS)
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+            ctx.fillStyle = "#fff"; // 白色球
+            ctx.fill();
+            ctx.closePath();
+        }
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height-paddleHeight, paddleWidth, paddleHeight);
+            ctx.fillStyle = "#0095DD"; // 藍色板子
+            ctx.fill();
+            ctx.closePath();
+        }
+        function drawBricks() {
+            for(var c=0; c<brickColumnCount; c++) {
+                for(var r=0; r<brickRowCount; r++) {
+                    if(bricks[c][r].status == 1) {
+                        var brickX = (c*(brickWidth+brickPadding))+brickOffsetLeft;
+                        var brickY = (r*(brickHeight+brickPadding))+brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = "#FF5733"; // 橘色磚塊
+                        ctx.fill();
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+        function drawScore() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#fff";
+            ctx.fillText("分數: "+score, 8, 20);
+        }
+
+        // 5. 遊戲主迴圈 (參考圖解：MAIN GAME LOOP)
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空畫面
+            drawBricks();
+            drawBall();
+            drawPaddle();
+            drawScore();
+            collisionDetection();
+
+            // 球的牆壁反彈邏輯 (參考圖解：BALL PHYSICS)
+            if(x + dx > canvas.width-ballRadius || x + dx < ballRadius) {
+                dx = -dx; // 左右牆壁反彈
+            }
+            if(y + dy < ballRadius) {
+                dy = -dy; // 上方牆壁反彈
+            } else if(y + dy > canvas.height-ballRadius) {
+                // 檢查是否撞到板子
+                if(x > paddleX && x < paddleX + paddleWidth) {
+                    dy = -dy; // 板子反彈
+                }
+                else {
+                    alert("遊戲結束");
+                    document.location.reload();
+                }
+            }
+
+            x += dx; // 更新球的X位置
+            y += dy; // 更新球的Y位置
+            requestAnimationFrame(draw); // 持續迴圈 (參考圖解 pseudo-code)
+        }
+
+        draw(); // 啟動遊戲 loop
+
+    </script>
+</body>
+</html>
